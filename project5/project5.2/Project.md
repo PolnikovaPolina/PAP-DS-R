@@ -1,30 +1,23 @@
----
-title: "Analysis of the Adverse Health and Economic Impacts of US Storms"
-author: "Michael Galarnyk"
-date: "5/10/2017"
-output: html_document
----
+1: Synopsis
+-----------
 
-Github repo for the Course: [Reproducible Research](https://github.com/mGalarnyk/datasciencecoursera/tree/master/5_Reproducible_Research)
-</br>
-Github repo for Rest of Specialization: [Data Science Coursera](https://github.com/mGalarnyk/datasciencecoursera)
-
-## 1: Synopsis
 The goal of the assignment is to explore the NOAA Storm Database and explore the effects of severe weather events on both population and economy.The database covers the time period between 1950 and November 2011.
 
 The following analysis investigates which types of severe weather events are most harmful on:
 
-1. Health (injuries and fatalities) 
-2. Property and crops (economic consequences)
+1.  Health (injuries and fatalities)
+2.  Property and crops (economic consequences)
 
 Information on the Data: [Documentation](https://d396qusza40orc.cloudfront.net/repdata%2Fpeer2_doc%2Fpd01016005curr.pdf)
 
-## 2: Data Processing
+2: Data Processing
+------------------
 
 ### 2.1: Data Loading
 
 Download the raw data file and extract the data into a dataframe.Then convert to a data.table
-```{r DataLoading}
+
+``` r
 library("data.table")
 library("ggplot2")
 
@@ -38,15 +31,24 @@ stormDT <- as.data.table(stormDF)
 
 ### 2.2: Examining Column Names
 
-```{r ColumnNames}
+``` r
 colnames(stormDT)
 ```
 
+    ##  [1] "STATE__"    "BGN_DATE"   "BGN_TIME"   "TIME_ZONE"  "COUNTY"    
+    ##  [6] "COUNTYNAME" "STATE"      "EVTYPE"     "BGN_RANGE"  "BGN_AZI"   
+    ## [11] "BGN_LOCATI" "END_DATE"   "END_TIME"   "COUNTY_END" "COUNTYENDN"
+    ## [16] "END_RANGE"  "END_AZI"    "END_LOCATI" "LENGTH"     "WIDTH"     
+    ## [21] "F"          "MAG"        "FATALITIES" "INJURIES"   "PROPDMG"   
+    ## [26] "PROPDMGEXP" "CROPDMG"    "CROPDMGEXP" "WFO"        "STATEOFFIC"
+    ## [31] "ZONENAMES"  "LATITUDE"   "LONGITUDE"  "LATITUDE_E" "LONGITUDE_"
+    ## [36] "REMARKS"    "REFNUM"
+
 ### 2.3: Data Subsetting
 
-Subset the dataset on the parameters of interest. Basically, we remove the columns we don't need for clarity. 
-```{r DataSubsetting, results="hide"}
+Subset the dataset on the parameters of interest. Basically, we remove the columns we don't need for clarity.
 
+``` r
 # Finding columns to remove
 cols2Remove <- colnames(stormDT[, !c("EVTYPE"
   , "FATALITIES"
@@ -73,8 +75,8 @@ stormDT <- stormDT[(EVTYPE != "?" &
 ### 2.4: Converting Exponent Columns into Actual Exponents instead of (-,+, H, K, etc)
 
 Making the PROPDMGEXP and CROPDMGEXP columns cleaner so they can be used to calculate property and crop cost.
-```{r CorrectingExponents, results="hide"}
 
+``` r
 # Change all damage exponents to uppercase.
 cols <- c("PROPDMGEXP", "CROPDMGEXP")
 stormDT[,  (cols) := c(lapply(.SD, toupper)), .SDcols = cols]
@@ -115,13 +117,13 @@ stormDT[is.na(CROPDMGEXP), CROPDMGEXP := 10^0 ]
 
 ### 2.5: Making Economic Cost Columns
 
-```{r EconomicCostColumns}
+``` r
 stormDT <- stormDT[, .(EVTYPE, FATALITIES, INJURIES, PROPDMG, PROPDMGEXP, propCost = PROPDMG * PROPDMGEXP, CROPDMG, CROPDMGEXP, cropCost = CROPDMG * CROPDMGEXP)]
 ```
 
 ### 2.6: Calcuating Total Property and Crop Cost
 
-```{r TotalPropertyCropCost}
+``` r
 totalCostDT <- stormDT[, .(propCost = sum(propCost), cropCost = sum(cropCost), Total_Cost = sum(propCost) + sum(cropCost)), by = .(EVTYPE)]
 
 totalCostDT <- totalCostDT[order(-Total_Cost), ]
@@ -131,9 +133,16 @@ totalCostDT <- totalCostDT[1:10, ]
 head(totalCostDT, 5)
 ```
 
+    ##               EVTYPE     propCost   cropCost   Total_Cost
+    ## 1:             FLOOD 144657709807 5661968450 150319678257
+    ## 2: HURRICANE/TYPHOON  69305840000 2607872800  71913712800
+    ## 3:           TORNADO  56947380676  414953270  57362333946
+    ## 4:       STORM SURGE  43323536000       5000  43323541000
+    ## 5:              HAIL  15735267513 3025954473  18761221986
+
 ### 2.7: Calcuating Total Fatalities and Injuries
 
-```{r TotalFatalitiesInjuriesCalc}
+``` r
 totalInjuriesDT <- stormDT[, .(FATALITIES = sum(FATALITIES), INJURIES = sum(INJURIES), totals = sum(FATALITIES) + sum(INJURIES)), by = .(EVTYPE)]
 
 totalInjuriesDT <- totalInjuriesDT[order(-FATALITIES), ]
@@ -143,17 +152,33 @@ totalInjuriesDT <- totalInjuriesDT[1:10, ]
 head(totalInjuriesDT, 5)
 ```
 
-## 3: Results
+    ##            EVTYPE FATALITIES INJURIES totals
+    ## 1:        TORNADO       5633    91346  96979
+    ## 2: EXCESSIVE HEAT       1903     6525   8428
+    ## 3:    FLASH FLOOD        978     1777   2755
+    ## 4:           HEAT        937     2100   3037
+    ## 5:      LIGHTNING        816     5230   6046
+
+3: Results
+----------
 
 ### 3.1: Events that are Most Harmful to Population Health
 
-Melting data.table so that it is easier to put in bar graph format 
-```{r HealthResults}
+Melting data.table so that it is easier to put in bar graph format
+
+``` r
 bad_stuff <- melt(totalInjuriesDT, id.vars="EVTYPE", variable.name = "bad_thing")
 head(bad_stuff, 5)
 ```
 
-```{r healthChart}
+    ##            EVTYPE  bad_thing value
+    ## 1:        TORNADO FATALITIES  5633
+    ## 2: EXCESSIVE HEAT FATALITIES  1903
+    ## 3:    FLASH FLOOD FATALITIES   978
+    ## 4:           HEAT FATALITIES   937
+    ## 5:      LIGHTNING FATALITIES   816
+
+``` r
 # Create chart
 healthChart <- ggplot(bad_stuff, aes(x=reorder(EVTYPE, -value), y=value))
 
@@ -175,15 +200,25 @@ healthChart = healthChart + ggtitle("Top 10 US Killers") + theme(plot.title = el
 healthChart
 ```
 
+![](Project/figure-markdown_github/healthChart-1.png)
+
 ### 3.2: Events that have the Greatest Economic Consequences
 
-Melting data.table so that it is easier to put in bar graph format 
-```{r EconConsequences}
+Melting data.table so that it is easier to put in bar graph format
+
+``` r
 econ_consequences <- melt(totalCostDT, id.vars="EVTYPE", variable.name = "Damage_Type")
 head(econ_consequences, 5)
 ```
 
-```{r econChart}
+    ##               EVTYPE Damage_Type        value
+    ## 1:             FLOOD    propCost 144657709807
+    ## 2: HURRICANE/TYPHOON    propCost  69305840000
+    ## 3:           TORNADO    propCost  56947380676
+    ## 4:       STORM SURGE    propCost  43323536000
+    ## 5:              HAIL    propCost  15735267513
+
+``` r
 # Create chart
 econChart <- ggplot(econ_consequences, aes(x=reorder(EVTYPE, -value), y=value))
 
@@ -204,3 +239,5 @@ econChart = econChart + ggtitle("Top 10 US Storm Events causing Economic Consequ
 
 econChart
 ```
+
+![](Project/figure-markdown_github/econChart-1.png)
